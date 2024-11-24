@@ -92,20 +92,6 @@ cleanup() {
     echo "Destroying CDK stacks..."
     cdk destroy --all --profile "$AWS_PROFILE" --force -c stage="$STAGE"
 
-    # 2. Clean up DynamoDB tables
-    echo "Cleaning up DynamoDB tables..."
-    TABLE_NAME="ReviewsTable-${STAGE}"  # Updated table name
-    aws dynamodb delete-table \
-        --table-name "$TABLE_NAME" \
-        --profile "$AWS_PROFILE" || true
-
-    # 3. Delete CloudWatch log groups
-    echo "Cleaning up CloudWatch log groups..."
-    LOG_GROUP="/aws/lambda/GetReviewsFunction-${STAGE}"
-    aws logs delete-log-group \
-        --log-group-name "$LOG_GROUP" \
-        --profile "$AWS_PROFILE" || true
-
     # 4. Delete CDKToolkit CloudFormation stack if no other CDK apps are using it
     echo "Do you want to delete the CDKToolkit CloudFormation stack? (Only do this if no other CDK apps are deployed)"
     read -p "Delete CDKToolkit stack? (y/N) " -n 1 -r
