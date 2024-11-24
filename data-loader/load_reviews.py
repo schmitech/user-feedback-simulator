@@ -4,6 +4,8 @@ import uuid
 import time
 import json
 import os
+import random
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from boto3.session import Session
 
@@ -87,7 +89,8 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
     
     # Get table name from environment variable if not provided
     if table_name is None:
-        table_name = os.getenv('DYNAMODB_TABLE', 'reviews-table')
+        stage = os.getenv('STAGE', 'dev')
+        table_name = f'ReviewsTable-{stage}'
     
     # First verify AWS credentials
     if not verify_aws_credentials():
@@ -129,10 +132,16 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
             for index, row in df.iterrows():
                 try:
                     if is_valid_review(row):
-                        # Ensure all fields have the correct types
+                        # Get current timestamp in ISO format with UTC timezone
+                        current_time = datetime.now(timezone.utc)
+                        
+                        # Create review item with both numeric timestamp (for sorting)
+                        # and ISO timestamp (for display)
                         review_item = {
                             'reviewId': str(uuid.uuid4()),  # String (partition key)
-                            'timestamp': int(time.time()),  # Number (sort key)
+                            'timestamp': int(current_time.timestamp()),  # Number (sort key)
+                            'timestampIso': current_time.isoformat(),  # String (for display)
+                            'randomBucket': random.randint(1, 10),  # For RandomAccessIndex GSI
                             'clothingId': str(row['Clothing ID']),
                             'age': int(float(row['Age'])) if pd.notna(row['Age']) else 0,
                             'title': str(row['Title']).strip(),
@@ -150,7 +159,7 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
                 except Exception as e:
                     error_records += 1
                     print(f"Error processing record {index}: {str(e)}")
-                    print(f"Problematic row: {row}")  # Add this for debugging
+                    print(f"Problematic row: {row}")
                     continue
                 
                 # Print progress every 100 records

@@ -1,0 +1,8 @@
+*.js
+!jest.config.js
+*.d.ts
+node_modules
+package-lock.json
+*deployment*.out
+.cdk.staging
+cdk.out

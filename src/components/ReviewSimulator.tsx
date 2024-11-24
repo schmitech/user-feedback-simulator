@@ -42,49 +42,26 @@ const ReviewSimulator: React.FC = () => {
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
 
-  // Fetch reviews from API Gateway
-  // const fetchReviews = async (batchSize = 20) => {
-  //   setIsLoading(true);
-  //   try {
-  //     const response = await fetch('https://API_ENDPOINT/dev/reviews', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         batchSize,
-  //         ratingFilter,
-  //         departmentFilter
-  //       })
-  //     });
-      
-  //     if (!response.ok) throw new Error('Failed to fetch reviews');
-      
-  //     const reviews = await response.json();
-  //     setReviewCache(prevCache => [...prevCache, ...reviews]);
-  //   } catch (error) {
-  //     console.error('Error fetching reviews:', error);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
+  //Fetch reviews from API Gateway
   const fetchReviews = async (batchSize = 20) => {
     setIsLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const response = await fetch('https://XXXXXXXX.execute-api.ca-central-1.amazonaws.com/dev/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          batchSize,
+          ratingFilter,
+          departmentFilter
+        })
+      });
       
-      // Use mock data
-      const randomReviews = [...mockReviews]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, batchSize)
-        .map(review => ({
-          ...review,
-          timestamp: Date.now()
-        }));
+      if (!response.ok) throw new Error('Failed to fetch reviews');
       
-      setReviewCache(prevCache => [...prevCache, ...randomReviews]);
+      const reviews = await response.json();
+      setReviewCache(prevCache => [...prevCache, ...reviews]);
     } catch (error) {
       console.error('Error fetching reviews:', error);
     } finally {
