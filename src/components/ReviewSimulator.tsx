@@ -83,30 +83,48 @@ const ReviewSimulator: React.FC = () => {
     }
   }, [reviewCache.length, ratingFilter, departmentFilter]);
 
-  const sendToAPI = async (review: Review) => {
-    console.log('Sending review to API:', review);
-};
+//   const sendToAPI = async (review: Review) => {
+//     console.log('Sending review to API:', review);
+// };
 
-  // const sendToAPI = async (review: Review) => {
-  //   try {
-  //     const response = await fetch('https://API_ENDPOINT/dev/feedback', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         ...review,
-  //         simulatedTimestamp: new Date().toISOString()
-  //       })
-  //     });
+  const sendToAPI = async (review: Review) => {
+    try {
+      const response = await fetch('https://ws25c7rhdg.execute-api.ca-central-1.amazonaws.com/dev/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reviews: [{
+            ...review,
+            timestampIso: new Date().toISOString(),
+            // Convert timestamp to string since DynamoDB expects it
+            timestamp: review.timestamp.toString(),
+            // Ensure these required fields are present
+            reviewId: review.reviewId,
+            clothingId: review.clothingId,
+            department: review.department,
+            division: review.division,
+            class: review.class,
+            rating: review.rating,
+            title: review.title,
+            review: review.review,
+            recommended: review.recommended,
+            age: review.age,
+            // Add randomBucket if not present in the Review interface
+            randomBucket: Math.floor(Math.random() * 10)
+          }]
+        })
+      });
       
-  //     if (!response.ok) {
-  //       console.error('API call failed');
-  //     }
-  //   } catch (error) {
-  //     console.error('Error sending review:', error);
-  //   }
-  // };
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API call failed:', errorData);
+      }
+    } catch (error) {
+      console.error('Error sending review:', error);
+    }
+  };
 
   const getNextReview = (): Review | null => {
     if (reviewCache.length === 0) {
