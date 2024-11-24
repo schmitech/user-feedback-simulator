@@ -3,6 +3,5 @@ logs
 *.log
 package-lock.json
 data-loader/venv
-data-loader/*.csv
 node_modules
 .DS_Store
