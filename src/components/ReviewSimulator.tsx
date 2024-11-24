@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Badge } from '../components/ui/badge';
 import { Star, Pause, Play, Settings, RefreshCcw } from 'lucide-react';
 import { Slider } from '../components/ui/slider';
-import { mockReviews } from '../mockData';  // at the top with other imports
 
 interface Review {
   reviewId: string;
@@ -41,12 +40,13 @@ const ReviewSimulator: React.FC = () => {
   const [simulationSpeed, setSimulationSpeed] = useState<number>(3000);
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
-
+  const API_URL = import.meta.env.VITE_API_URL
+  
   //Fetch reviews from API Gateway
   const fetchReviews = async (batchSize = 20) => {
     setIsLoading(true);
     try {
-      const response = await fetch('https://XXXXXXXX.execute-api.ca-central-1.amazonaws.com/dev/reviews', {
+      const response = await fetch(`${API_URL}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,7 +60,15 @@ const ReviewSimulator: React.FC = () => {
       
       if (!response.ok) throw new Error('Failed to fetch reviews');
       
-      const reviews = await response.json();
+      const data = await response.json();
+      // Extract the reviews array from the response
+      const reviews = data.reviews;
+      
+      if (!Array.isArray(reviews)) {
+        console.error('Expected array of reviews but got:', reviews);
+        return;
+      }
+
       setReviewCache(prevCache => [...prevCache, ...reviews]);
     } catch (error) {
       console.error('Error fetching reviews:', error);

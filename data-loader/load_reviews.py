@@ -15,7 +15,7 @@ load_dotenv()
 def get_aws_session():
     """Create AWS session with profile from environment variable"""
     profile_name = os.getenv('AWS_PROFILE')
-    region_name = os.getenv('AWS_REGION', 'us-east-1')
+    region_name = os.getenv('AWS_REGION', 'ca-central-1')
     
     if not profile_name:
         print("AWS_PROFILE not found in environment variables")
