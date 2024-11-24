@@ -1,0 +1,5 @@
+pandas==2.1.4
+boto3==1.34.0
+numpy==1.26.2
+python-dateutil==2.8.2
+python-dotenv==1.0.0
