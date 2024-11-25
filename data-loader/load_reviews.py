@@ -5,7 +5,7 @@ import time
 import json
 import os
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from boto3.session import Session
 
@@ -84,6 +84,124 @@ def is_valid_review(row):
     has_review = isinstance(row['Review Text'], str) and row['Review Text'].strip() != ''
     return has_title and has_review
 
+def get_weighted_random_timestamp(months_ago=6):
+    """
+    Generate a random timestamp with realistic patterns:
+    - More reviews on weekends
+    - More reviews in evening hours
+    - More reviews in recent months
+    - More reviews during shopping hours
+    """
+    now = datetime.now(timezone.utc)
+    six_months_ago = now - timedelta(days=30 * months_ago)
+    
+    # Step 1: Get a random date with weight towards recent dates
+    days_diff = (now - six_months_ago).days
+    # Use beta distribution to weight towards recent dates (alpha=2, beta=1)
+    random_day = six_months_ago + timedelta(
+        days=int(random.betavariate(2, 1) * days_diff)
+    )
+    
+    # Step 2: Adjust for day of week preferences
+    # Keep trying until we get a date that passes our probability check
+    while True:
+        # Higher probability for weekends
+        day_weights = {
+            0: 0.7,  # Monday
+            1: 0.7,  # Tuesday
+            2: 0.7,  # Wednesday
+            3: 0.8,  # Thursday
+            4: 0.9,  # Friday
+            5: 1.0,  # Saturday
+            6: 1.0,  # Sunday
+        }
+        if random.random() <= day_weights[random_day.weekday()]:
+            break
+        random_day = six_months_ago + timedelta(
+            days=int(random.betavariate(2, 1) * days_diff)
+        )
+    
+    # Step 3: Generate hour of day with realistic patterns
+    # Probability distribution for each hour (24-hour format)
+    hour_weights = {
+        0: 0.3,   # 12 AM
+        1: 0.2,   # 1 AM
+        2: 0.1,   # 2 AM
+        3: 0.05,  # 3 AM
+        4: 0.05,  # 4 AM
+        5: 0.05,  # 5 AM
+        6: 0.1,   # 6 AM
+        7: 0.2,   # 7 AM
+        8: 0.3,   # 8 AM
+        9: 0.4,   # 9 AM
+        10: 0.6,  # 10 AM
+        11: 0.7,  # 11 AM
+        12: 0.8,  # 12 PM
+        13: 0.7,  # 1 PM
+        14: 0.6,  # 2 PM
+        15: 0.6,  # 3 PM
+        16: 0.7,  # 4 PM
+        17: 0.8,  # 5 PM
+        18: 0.9,  # 6 PM
+        19: 1.0,  # 7 PM - Peak
+        20: 1.0,  # 8 PM - Peak
+        21: 0.9,  # 9 PM
+        22: 0.7,  # 10 PM
+        23: 0.5,  # 11 PM
+    }
+    
+    # Keep trying until we get an hour that passes our probability check
+    while True:
+        hour = random.randint(0, 23)
+        if random.random() <= hour_weights[hour]:
+            break
+    
+    # Step 4: Generate random minute and second
+    minute = random.randint(0, 59)
+    second = random.randint(0, 59)
+    
+    # Combine everything into a final timestamp
+    final_datetime = random_day.replace(
+        hour=hour, 
+        minute=minute, 
+        second=second,
+        microsecond=0
+    )
+    
+    return final_datetime
+
+def analyze_distribution(timestamps, total_records):
+    """Analyze and print the distribution of timestamps"""
+    # Analyze day of week distribution
+    day_counts = {i: 0 for i in range(7)}
+    hour_counts = {i: 0 for i in range(24)}
+    month_counts = {}
+    
+    for ts in timestamps:
+        day_counts[ts.weekday()] += 1
+        hour_counts[ts.hour] += 1
+        month_key = ts.strftime('%Y-%m')
+        month_counts[month_key] = month_counts.get(month_key, 0) + 1
+    
+    # Print distribution analysis
+    print("\nTimestamp Distribution Analysis:")
+    print("\nDay of Week Distribution:")
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    for i, day in enumerate(days):
+        percentage = (day_counts[i] / total_records) * 100
+        print(f"{day}: {percentage:.1f}%")
+    
+    print("\nHour Distribution (top 5 peak hours):")
+    sorted_hours = sorted(hour_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    for hour, count in sorted_hours:
+        percentage = (count / total_records) * 100
+        print(f"{hour:02d}:00: {percentage:.1f}%")
+    
+    print("\nMonthly Distribution:")
+    for month in sorted(month_counts.keys()):
+        percentage = (month_counts[month] / total_records) * 100
+        print(f"{month}: {percentage:.1f}%")
+
 def load_reviews_to_dynamodb(table_name=None, batch_size=25):
     """Load reviews into DynamoDB with verification and error handling"""
     
@@ -126,22 +244,24 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
     print(f"Starting to process {total_records} records...")
     start_time = time.time()
     
+    # Store timestamps for distribution analysis
+    timestamps = []
+    
     try:
         # Process each review
         with table.batch_writer(overwrite_by_pkeys=['reviewId']) as batch:
             for index, row in df.iterrows():
                 try:
                     if is_valid_review(row):
-                        # Get current timestamp in ISO format with UTC timezone
-                        current_time = datetime.now(timezone.utc)
+                        # Get random timestamp with realistic patterns
+                        random_datetime = get_weighted_random_timestamp()
+                        timestamps.append(random_datetime)
                         
-                        # Create review item with both numeric timestamp (for sorting)
-                        # and ISO timestamp (for display)
                         review_item = {
-                            'reviewId': str(uuid.uuid4()),  # String (partition key)
-                            'timestamp': int(current_time.timestamp()),  # Number (sort key)
-                            'timestampIso': current_time.isoformat(),  # String (for display)
-                            'randomBucket': random.randint(1, 10),  # For RandomAccessIndex GSI
+                            'reviewId': str(uuid.uuid4()),
+                            'timestamp': int(random_datetime.timestamp()),
+                            'timestampIso': random_datetime.isoformat(),
+                            'randomBucket': random.randint(1, 10),
                             'clothingId': str(row['Clothing ID']),
                             'age': int(float(row['Age'])) if pd.notna(row['Age']) else 0,
                             'title': str(row['Title']).strip(),
@@ -159,7 +279,6 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
                 except Exception as e:
                     error_records += 1
                     print(f"Error processing record {index}: {str(e)}")
-                    print(f"Problematic row: {row}")
                     continue
                 
                 # Print progress every 100 records
@@ -186,6 +305,12 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
     print(f"Success rate: {(valid_records/total_records)*100:.2f}%")
     print(f"Total time: {elapsed_time:.2f} seconds")
     print(f"Average speed: {records_per_second:.2f} records/second")
+    print(f"\nReviews are spread between: ")
+    print(f"Start date: {(datetime.now(timezone.utc) - timedelta(days=30 * 6)).isoformat()}")
+    print(f"End date: {datetime.now(timezone.utc).isoformat()}")
+    
+    # Print distribution analysis
+    analyze_distribution(timestamps, valid_records)
 
 if __name__ == "__main__":
     try:

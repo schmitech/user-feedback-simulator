@@ -41,6 +41,7 @@ const ReviewSimulator: React.FC = () => {
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const API_URL = import.meta.env.VITE_API_URL
+  const FEEDBACK_API_URL = import.meta.env.VITE_FEEDBACK_API_URL
   
   //Fetch reviews from API Gateway
   const fetchReviews = async (batchSize = 20) => {
@@ -83,13 +84,9 @@ const ReviewSimulator: React.FC = () => {
     }
   }, [reviewCache.length, ratingFilter, departmentFilter]);
 
-//   const sendToAPI = async (review: Review) => {
-//     console.log('Sending review to API:', review);
-// };
-
   const sendToAPI = async (review: Review) => {
     try {
-      const response = await fetch('https://ws25c7rhdg.execute-api.ca-central-1.amazonaws.com/dev/feedback', {
+      const response = await fetch(`${FEEDBACK_API_URL}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
