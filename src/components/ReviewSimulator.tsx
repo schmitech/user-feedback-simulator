@@ -7,6 +7,7 @@ import { Slider } from '../components/ui/slider';
 
 interface Review {
   reviewId: string;
+  timestampIso: string;
   timestamp: number;
   clothingId: string;
   age: number;
@@ -40,7 +41,7 @@ const ReviewSimulator: React.FC = () => {
   const [simulationSpeed, setSimulationSpeed] = useState<number>(3000);
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
-  const API_URL = import.meta.env.VITE_API_URL
+  const API_URL = import.meta.env.VITE_REVIEWS_API_URL
   const FEEDBACK_API_URL = import.meta.env.VITE_FEEDBACK_API_URL
   
   //Fetch reviews from API Gateway
@@ -94,7 +95,7 @@ const ReviewSimulator: React.FC = () => {
         body: JSON.stringify({
           reviews: [{
             ...review,
-            timestampIso: new Date().toISOString(),
+            timestampIso: review.timestampIso,
             // Convert timestamp to string since DynamoDB expects it
             timestamp: review.timestamp.toString(),
             // Ensure these required fields are present
