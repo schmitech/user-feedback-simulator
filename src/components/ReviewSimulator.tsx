@@ -42,7 +42,7 @@ const ReviewSimulator: React.FC = () => {
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const API_URL = import.meta.env.VITE_REVIEWS_API_URL
-  const FEEDBACK_API_URL = import.meta.env.VITE_FEEDBACK_API_URL
+  const SENTIMENT_API_URL = import.meta.env.VITE_SENTIMENT_API_URL
   
   //Fetch reviews from API Gateway
   const fetchReviews = async (batchSize = 20) => {
@@ -87,7 +87,7 @@ const ReviewSimulator: React.FC = () => {
 
   const sendToAPI = async (review: Review) => {
     try {
-      const response = await fetch(`${FEEDBACK_API_URL}/feedback`, {
+      const response = await fetch(`${SENTIMENT_API_URL}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

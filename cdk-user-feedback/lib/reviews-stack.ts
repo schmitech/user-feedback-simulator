@@ -3,14 +3,20 @@ import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as path from 'path';
 import { Construct } from 'constructs';
 
+// Define the interface for stack props
+export interface ReviewsStackProps extends cdk.StackProps {
+  stage: string;
+}
+
 export class ReviewsStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: ReviewsStackProps) {
     super(scope, id, props);
 
-    // Get stage from context
-    const stage = this.node.tryGetContext('stage') || 'dev';
+    // Use stage from props instead of context
+    const stage = props.stage;
 
     // DynamoDB table
     const reviewsTable = new dynamodb.Table(this, 'ReviewsTable', {
@@ -31,11 +37,11 @@ export class ReviewsStack extends cdk.Stack {
     // Lambda function
     const getReviewsFunction = new lambda.Function(this, 'GetReviewsFunction', {
       runtime: lambda.Runtime.PYTHON_3_9,
-      handler: 'index.lambda_handler',
-      code: lambda.Code.fromAsset('lambda'),
+      handler: 'index.lambda_handler',  // Matches the function name in your Python code
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/reviews')),
       environment: {
         TABLE_NAME: reviewsTable.tableName,
-        TABLE_GSI: 'RandomAccessIndex',
+        TABLE_GSI: 'RandomAccessIndex',  // This matches the GSI reference in your Python code
       },
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,

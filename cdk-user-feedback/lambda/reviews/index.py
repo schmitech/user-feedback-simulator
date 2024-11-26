@@ -19,6 +19,13 @@ class DecimalEncoder(json.JSONEncoder):
             return int(n) if n.is_integer() else n
         return super(DecimalEncoder, self).default(obj)
 
+def validate_environment():
+    """Validate required environment variables are present"""
+    required_vars = ['TABLE_NAME', 'TABLE_GSI']
+    missing_vars = [var for var in required_vars if not os.environ.get(var)]
+    if missing_vars:
+        raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
 def clean_item(item: Dict[str, Any]) -> Dict[str, Any]:
     """Clean up item data before returning"""
     integer_fields = {'age', 'rating', 'randomBucket'}
@@ -122,6 +129,14 @@ def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    try:
+        validate_environment()
+    except EnvironmentError as e:
+        return create_response(500, {
+            'error': str(e),
+            'message': 'Lambda configuration error'
+        })
+    
     # Handle OPTIONS request for CORS
     if event.get('httpMethod') == 'OPTIONS':
         return create_response(200, {})

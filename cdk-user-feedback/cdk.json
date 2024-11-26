@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/cdk-user-feedback.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/reviews-app.ts",
   "watch": {
     "include": [
       "**"
