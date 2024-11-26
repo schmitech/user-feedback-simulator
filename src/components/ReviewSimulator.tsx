@@ -7,7 +7,7 @@ import { Slider } from '../components/ui/slider';
 
 interface Review {
   reviewId: string;
-  timestampIso: string;
+  reviewDateTime: string;
   timestamp: number;
   clothingId: string;
   age: number;
@@ -95,7 +95,7 @@ const ReviewSimulator: React.FC = () => {
         body: JSON.stringify({
           reviews: [{
             ...review,
-            timestampIso: review.timestampIso,
+            reviewDateTime: review.reviewDateTime,
             // Convert timestamp to string since DynamoDB expects it
             timestamp: review.timestamp.toString(),
             // Ensure these required fields are present

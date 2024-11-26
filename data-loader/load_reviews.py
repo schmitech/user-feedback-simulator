@@ -260,7 +260,7 @@ def load_reviews_to_dynamodb(table_name=None, batch_size=25):
                         review_item = {
                             'reviewId': str(uuid.uuid4()),
                             'timestamp': int(random_datetime.timestamp()),
-                            'timestampIso': random_datetime.isoformat(),
+                            'reviewDateTime': random_datetime.isoformat(),
                             'randomBucket': random.randint(1, 10),
                             'clothingId': str(row['Clothing ID']),
                             'age': int(float(row['Age'])) if pd.notna(row['Age']) else 0,
