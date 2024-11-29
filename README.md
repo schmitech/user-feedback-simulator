@@ -144,8 +144,11 @@ python load_reviews.py
 
 ### 3. Run the Feedback Simulator
 
+
 ```bash
 cd /user-feedback-simulator
+cp .env.example .env
+# Edit .env to set your API GW Endpoints
 npm install
 npm run dev
 ```

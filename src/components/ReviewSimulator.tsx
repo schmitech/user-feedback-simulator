@@ -43,6 +43,19 @@ const ReviewSimulator: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const API_URL = import.meta.env.VITE_REVIEWS_API_URL
   const SENTIMENT_API_URL = import.meta.env.VITE_SENTIMENT_API_URL
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
   
   //Fetch reviews from API Gateway
   const fetchReviews = async (batchSize = 20) => {
@@ -275,34 +288,36 @@ const ReviewSimulator: React.FC = () => {
 
           {currentReview && (
             <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-              <div className="text-lg font-semibold mb-2">Latest Review</div>
-              <div className="flex items-center gap-2 mb-2">
-                {renderStars(currentReview.rating)}
-                <Badge variant={currentReview.recommended ? "success" : "destructive"}>
-                  {currentReview.recommended ? "Recommended" : "Not Recommended"}
-                </Badge>
-              </div>
-              <p className="text-gray-700">{currentReview.review}</p>
-              <div className="text-sm text-gray-500 mt-2">
-                Department: {currentReview.department} | Division: {currentReview.division} | Age: {currentReview.age}
-              </div>
+            <div className="text-lg font-semibold mb-2">Current Review</div>
+            <div className="flex items-center gap-2 mb-2">
+              {renderStars(currentReview.rating)}
+              <Badge variant={currentReview.recommended ? "success" : "destructive"}>
+                {currentReview.recommended ? "Recommended" : "Not Recommended"}
+              </Badge>
             </div>
+            <p className="text-gray-700">{currentReview.review}</p>
+            <div className="text-sm text-gray-500 mt-2 flex justify-between items-center">
+              <span>Department: {currentReview.department} | Division: {currentReview.division} | Age: {currentReview.age}</span>
+              <span className="font-bold">{formatDate(currentReview.reviewDateTime)}</span>
+            </div>
+          </div>
           )}
 
           <div>
-            <div className="text-lg font-semibold mb-2">Recent Reviews</div>
+            <div className="text-lg font-semibold mb-2">Past Reviews</div>
             <div className="space-y-3">
-              {recentReviews.map((review, index) => (
-                <div key={index} className="p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    {renderStars(review.rating)}
-                  </div>
-                  <p className="text-sm text-gray-700">{review.review}</p>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Department: {review.department}
-                  </div>
-                </div>
-              ))}
+            {recentReviews.map((review) => (
+            <div key={review.reviewId} className="p-3 border rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                {renderStars(review.rating)}
+              </div>
+              <p className="text-sm text-gray-700">{review.review}</p>
+              <div className="text-xs text-gray-500 mt-1 flex justify-between items-center">
+                <span>Department: {review.department}</span>
+                <span className="font-bold">{formatDate(review.reviewDateTime)}</span>
+              </div>
+            </div>
+          ))}
             </div>
           </div>
         </CardContent>
