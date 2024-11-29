@@ -38,7 +38,7 @@ const ReviewSimulator: React.FC = () => {
     recommendedCount: 0
   });
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [simulationSpeed, setSimulationSpeed] = useState<number>(3000);
+  const [simulationSpeed, setSimulationSpeed] = useState<number>(5000);
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const API_URL = import.meta.env.VITE_REVIEWS_API_URL

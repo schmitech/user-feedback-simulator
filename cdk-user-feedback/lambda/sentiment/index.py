@@ -12,7 +12,6 @@ dynamodb = boto3.resource('dynamodb')
 
 def index_to_elasticsearch(data: Dict[str, Any]) -> None:
     """Index document to Elasticsearch"""
-    # Get ES configuration from environment variables
     es_endpoint = os.environ['ES_ENDPOINT']
     es_api_key = os.environ['ES_API_KEY']
     es_index = os.environ['ES_INDEX']
@@ -22,25 +21,42 @@ def index_to_elasticsearch(data: Dict[str, Any]) -> None:
         "Authorization": f"ApiKey {es_api_key}"
     }
     
-    # Create a copy of the data for ES to avoid modifying the original
-    es_data = data.copy()
+    # Convert Decimal objects to float for ES
+    def decimal_to_float(obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        elif isinstance(obj, dict):
+            return {k: decimal_to_float(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [decimal_to_float(x) for x in obj]
+        return obj
     
-    # Convert Decimal objects to float for JSON serialization
-    es_data = json.loads(json.dumps(es_data, cls=DecimalEncoder))
+    es_data = decimal_to_float(data)
     
-    # Use reviewId as document ID for idempotency
     document_id = es_data['reviewId']
     url = f"{es_endpoint}/{es_index}/_doc/{document_id}"
     
-    response = requests.put(
-        url,
-        headers=headers,
-        json=es_data,
-        verify=True  # Enable SSL verification
-    )
-    
-    if not response.ok:
-        raise RuntimeError(f"Failed to index to Elasticsearch: {response.text}")
+    try:
+        response = requests.put(
+            url,
+            headers=headers,
+            json=es_data,
+            verify=True,
+            timeout=30
+        )
+        
+        if not response.ok:
+            print(f"ES indexing failed for document {document_id}: {response.text}")
+            raise RuntimeError(f"Failed to index to Elasticsearch: {response.text}")
+            
+        print(f"Successfully indexed document {document_id} to Elasticsearch")
+            
+    except requests.exceptions.Timeout:
+        print(f"Timeout while indexing document {document_id}")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"Error indexing document {document_id}: {str(e)}")
+        raise
 
 def handle_error(error: Exception, feedback_id: str) -> Dict[str, Any]:
     print(f"Error processing feedback {feedback_id}: {str(error)}")
@@ -134,7 +150,6 @@ def handler(event, context):
     try:
         body = json.loads(event['body'])
         
-        # Check if the incoming data has the expected structure
         if not isinstance(body, dict) or 'reviews' not in body:
             return {
                 'statusCode': 400,
@@ -144,22 +159,35 @@ def handler(event, context):
         processed_reviews = []
         errors = []
         
+        # Get remaining lambda execution time
+        time_remaining_ms = context.get_remaining_time_in_millis()
+        
         for review in body['reviews']:
+            # Check if we have enough time left to process another review (e.g., 10 seconds)
+            if context.get_remaining_time_in_millis() < 10000:
+                errors.append({
+                    'reviewId': 'batch',
+                    'error': 'Lambda timeout approaching - batch processing interrupted'
+                })
+                break
+                
             if not review.get('review'):
-                continue  # Skip reviews with no text content
+                continue
                 
             try:
                 processed_review = process_feedback(review)
-                processed_reviews.append(processed_review)
                 
-                # Store in DynamoDB
+                # Store in DynamoDB first
                 table = dynamodb.Table(os.environ['FEEDBACK_TABLE'])
                 table.put_item(Item=processed_review)
                 
-                # Index in Elasticsearch
+                # Then index in Elasticsearch
                 index_to_elasticsearch(processed_review)
                 
+                processed_reviews.append(processed_review)
+                
             except Exception as e:
+                print(f"Error processing review: {str(e)}")
                 errors.append({
                     'reviewId': review.get('reviewId', 'unknown'),
                     'error': str(e)
@@ -168,6 +196,7 @@ def handler(event, context):
         response_body = {
             'message': 'Reviews processed successfully',
             'processedCount': len(processed_reviews),
+            'errorCount': len(errors),
             'timestamp': get_iso_timestamp()
         }
         
@@ -175,7 +204,7 @@ def handler(event, context):
             response_body['errors'] = errors
 
         return {
-            'statusCode': 200 if not errors else 207,  # Use 207 Multi-Status if there are partial failures
+            'statusCode': 200 if not errors else 207,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
