@@ -1,9 +1,25 @@
+# Elasticsearch Commands Reference
+
+## Basic Operations
+
+### Get Document Count
+```http
 GET /sentiment/_count
+```
 
+### Get Statistics
+```http
+GET /sentiment/_stats
+```
+
+### Delete Index
+```http
 DELETE /sentiment
+```
 
+### Create Index with Mappings
+```http
 PUT /sentiment
-```json
 {
   "mappings": {
     "properties": {
@@ -37,20 +53,42 @@ PUT /sentiment
 }
 ```
 
+## Queries
+
+### Delete Documents Matching a Query
+```http
 POST /sentiment/_delete_by_query
 {
   "query": {
     "match_all": {}
   }
 }
+```
 
+### Search by Specific Field
+```http
+GET /sentiment/_search
+{
+  "query": {
+    "term": {
+      "reviewId": "0121bb76-853e-4efe-98fc-e9031db19be0"
+    }
+  }
+}
+```
+
+### Match All Documents
+```http
 GET /sentiment/_search
 {
   "query": {
     "match_all": {}
   }
 }
+```
 
+### Search by Range
+```http
 GET /sentiment/_search
 {
   "query": {
@@ -59,12 +97,6 @@ GET /sentiment/_search
         "gt": 0.95
       }
     }
-  },
-  "sort": [
-    {
-      "sentimentScore.Negative": {
-        "order": "desc"
-      }
-    }
-  ]
+  }
 }
+```

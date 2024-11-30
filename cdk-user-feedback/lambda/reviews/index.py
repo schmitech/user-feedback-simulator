@@ -38,14 +38,14 @@ def clean_item(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_random_reviews(batch_size: int, rating_filter: str = 'all', department_filter: str = 'all') -> List[Dict[str, Any]]:
     """
-    Get random reviews using multiple sampling strategies:
-    1. Query multiple random buckets
-    2. Use random starting points within each bucket
-    3. Combine and shuffle results
+    Get random reviews using an improved sampling strategy:
+    1. Query more buckets for better distribution
+    2. Use simpler, more reliable random positioning
+    3. Get more items initially and randomly sample from them
     """
     all_items = []
-    buckets_to_try = random.sample(range(1, 11), k=3)  # Try 3 random buckets
-    items_per_bucket = batch_size // len(buckets_to_try) + 1  # Distribute batch size across buckets
+    buckets_to_try = random.sample(range(1, 11), k=5)  # Try 5 random buckets instead of 3
+    items_per_bucket = batch_size  # Get full batch size from each bucket for better sampling
     
     for bucket in buckets_to_try:
         # Base query parameters
@@ -74,45 +74,38 @@ def get_random_reviews(batch_size: int, rating_filter: str = 'all', department_f
         if filter_expressions:
             query_params['FilterExpression'] = ' AND '.join(filter_expressions)
 
-        # Add random starting point using exclusive start key
         try:
-            # First, get a count of items in this bucket
+            # Get count first
             count_params = query_params.copy()
             count_params['Select'] = 'COUNT'
             count_result = table.query(**count_params)
             total_in_bucket = count_result['Count']
 
             if total_in_bucket > 0:
-                # Choose a random starting point
-                skip_items = random.randint(0, max(0, total_in_bucket - items_per_bucket))
-                if skip_items > 0:
-                    # Get the item at the random position to use as exclusive start key
-                    scan_params = query_params.copy()
-                    scan_params['Limit'] = 1
-                    for _ in range(skip_items // 100):  # Handle pagination if skip_items is large
-                        response = table.query(**scan_params)
+                # Simple random skip
+                if total_in_bucket > items_per_bucket:
+                    skip_items = random.randint(0, total_in_bucket - items_per_bucket)
+                    if skip_items > 0:
+                        query_params['Limit'] = skip_items
+                        response = table.query(**query_params)
                         if 'LastEvaluatedKey' in response:
-                            scan_params['ExclusiveStartKey'] = response['LastEvaluatedKey']
-                        else:
-                            break
+                            query_params['ExclusiveStartKey'] = response['LastEvaluatedKey']
+                
+                # Reset limit for actual query
+                query_params['Limit'] = items_per_bucket
+                response = table.query(**query_params)
+                all_items.extend(response.get('Items', []))
 
-                    # Now get the actual items starting from our random position
-                    query_params['ExclusiveStartKey'] = response.get('LastEvaluatedKey')
-
-        except Exception as e:
-            print(f"Error in random positioning: {str(e)}")
-            # Continue without random positioning if it fails
-
-        # Get items from this bucket
-        try:
-            response = table.query(**query_params)
-            all_items.extend(response.get('Items', []))
         except Exception as e:
             print(f"Error querying bucket {bucket}: {str(e)}")
             continue
 
-    # Shuffle all collected items and trim to requested size
-    random.shuffle(all_items)
+    # If we have more items than needed, randomly sample from them
+    if len(all_items) > batch_size:
+        all_items = random.sample(all_items, batch_size)
+    else:
+        random.shuffle(all_items)
+        
     return [clean_item(item) for item in all_items[:batch_size]]
 
 def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:

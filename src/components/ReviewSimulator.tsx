@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from './ui/button';
 import { Badge } from '../components/ui/badge';
@@ -154,13 +154,24 @@ const ReviewSimulator: React.FC = () => {
     };
   };
 
-  const processNewReview = () => {
+  const processNewReview = useCallback(() => {
     const reviewWithTimestamp = getNextReview();
     if (!reviewWithTimestamp) return;
 
+    // Move current review to past reviews if it exists
+    if (currentReview) {
+      setRecentReviews(prevReviews => {
+        const updatedReviews = [currentReview, ...prevReviews].filter(r => 
+          r.reviewId !== reviewWithTimestamp.reviewId
+        ).slice(0, 5);
+        return updatedReviews;
+      });
+    }
+
+    // Set new current review
     setCurrentReview(reviewWithTimestamp);
-    setRecentReviews(prev => [reviewWithTimestamp, ...prev].slice(0, 5));
     
+    // Update stats
     setStats(prev => ({
       totalProcessed: prev.totalProcessed + 1,
       avgRating: ((prev.avgRating * prev.totalProcessed) + reviewWithTimestamp.rating) / (prev.totalProcessed + 1),
@@ -168,7 +179,7 @@ const ReviewSimulator: React.FC = () => {
     }));
 
     sendToAPI(reviewWithTimestamp);
-  };
+  }, [currentReview, getNextReview, sendToAPI]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -176,7 +187,14 @@ const ReviewSimulator: React.FC = () => {
       interval = setInterval(processNewReview, simulationSpeed);
     }
     return () => clearInterval(interval);
-  }, [isSimulating, simulationSpeed, isLoading]);
+  }, [isSimulating, simulationSpeed, isLoading, processNewReview]);
+
+  // Reset recent reviews when simulation stops
+  useEffect(() => {
+    if (!isSimulating) {
+      setRecentReviews([]);
+    }
+  }, [isSimulating]);
 
   const renderStars = (rating: number) => {
     return [...Array(5)].map((_, index) => (
@@ -288,36 +306,36 @@ const ReviewSimulator: React.FC = () => {
 
           {currentReview && (
             <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-            <div className="text-lg font-semibold mb-2">Current Review</div>
-            <div className="flex items-center gap-2 mb-2">
-              {renderStars(currentReview.rating)}
-              <Badge variant={currentReview.recommended ? "success" : "destructive"}>
-                {currentReview.recommended ? "Recommended" : "Not Recommended"}
-              </Badge>
+              <div className="text-lg font-semibold mb-2">Current Review</div>
+              <div className="flex items-center gap-2 mb-2">
+                {renderStars(currentReview.rating)}
+                <Badge variant={currentReview.recommended ? "success" : "destructive"}>
+                  {currentReview.recommended ? "Recommended" : "Not Recommended"}
+                </Badge>
+              </div>
+              <p className="text-gray-700">{currentReview.review}</p>
+              <div className="text-sm text-gray-500 mt-2 flex justify-between items-center">
+                <span>Department: {currentReview.department} | Division: {currentReview.division} | Age: {currentReview.age}</span>
+                <span className="font-bold">{formatDate(currentReview.reviewDateTime)}</span>
+              </div>
             </div>
-            <p className="text-gray-700">{currentReview.review}</p>
-            <div className="text-sm text-gray-500 mt-2 flex justify-between items-center">
-              <span>Department: {currentReview.department} | Division: {currentReview.division} | Age: {currentReview.age}</span>
-              <span className="font-bold">{formatDate(currentReview.reviewDateTime)}</span>
-            </div>
-          </div>
           )}
 
           <div>
             <div className="text-lg font-semibold mb-2">Past Reviews</div>
             <div className="space-y-3">
-            {recentReviews.map((review) => (
-            <div key={review.reviewId} className="p-3 border rounded-lg">
-              <div className="flex items-center gap-2 mb-1">
-                {renderStars(review.rating)}
-              </div>
-              <p className="text-sm text-gray-700">{review.review}</p>
-              <div className="text-xs text-gray-500 mt-1 flex justify-between items-center">
-                <span>Department: {review.department}</span>
-                <span className="font-bold">{formatDate(review.reviewDateTime)}</span>
-              </div>
-            </div>
-          ))}
+              {recentReviews.map((review) => (
+                <div key={review.reviewId} className="p-3 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    {renderStars(review.rating)}
+                  </div>
+                  <p className="text-sm text-gray-700">{review.review}</p>
+                  <div className="text-xs text-gray-500 mt-1 flex justify-between items-center">
+                    <span>Department: {review.department}</span>
+                    <span className="font-bold">{formatDate(review.reviewDateTime)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </CardContent>
