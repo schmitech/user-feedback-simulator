@@ -38,28 +38,34 @@ def clean_item(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_random_reviews(batch_size: int, rating_filter: str = 'all', department_filter: str = 'all') -> List[Dict[str, Any]]:
     """
-    Get random reviews using an improved sampling strategy:
-    1. Query more buckets for better distribution
-    2. Use simpler, more reliable random positioning
-    3. Get more items initially and randomly sample from them
+    Get random reviews with improved distribution between positive and negative reviews
     """
     all_items = []
-    buckets_to_try = random.sample(range(1, 11), k=5)  # Try 5 random buckets instead of 3
-    items_per_bucket = batch_size  # Get full batch size from each bucket for better sampling
+    buckets_to_try = random.sample(range(1, 11), k=5)
+    
+    # Calculate target numbers for positive and negative reviews
+    if rating_filter == 'all':
+        negative_target = batch_size // 2
+        positive_target = batch_size - negative_target
+    else:
+        negative_target = batch_size if rating_filter == 'negative' else 0
+        positive_target = batch_size if rating_filter == 'positive' else 0
     
     for bucket in buckets_to_try:
-        # Base query parameters
         query_params = {
             'IndexName': os.environ['TABLE_GSI'],
             'KeyConditionExpression': 'randomBucket = :bucket',
             'ExpressionAttributeValues': {
                 ':bucket': bucket
-            },
-            'Limit': items_per_bucket
+            }
         }
         
-        # Add filters
+        # Build filter expression
         filter_expressions = []
+        if department_filter != 'all':
+            filter_expressions.append('department = :dept')
+            query_params['ExpressionAttributeValues'][':dept'] = department_filter
+            
         if rating_filter == 'positive':
             filter_expressions.append('rating >= :min_rating')
             query_params['ExpressionAttributeValues'][':min_rating'] = 4
@@ -67,45 +73,39 @@ def get_random_reviews(batch_size: int, rating_filter: str = 'all', department_f
             filter_expressions.append('rating < :max_rating')
             query_params['ExpressionAttributeValues'][':max_rating'] = 4
             
-        if department_filter != 'all':
-            filter_expressions.append('department = :dept')
-            query_params['ExpressionAttributeValues'][':dept'] = department_filter
-            
         if filter_expressions:
             query_params['FilterExpression'] = ' AND '.join(filter_expressions)
 
         try:
-            # Get count first
-            count_params = query_params.copy()
-            count_params['Select'] = 'COUNT'
-            count_result = table.query(**count_params)
-            total_in_bucket = count_result['Count']
-
-            if total_in_bucket > 0:
-                # Simple random skip
-                if total_in_bucket > items_per_bucket:
-                    skip_items = random.randint(0, total_in_bucket - items_per_bucket)
-                    if skip_items > 0:
-                        query_params['Limit'] = skip_items
-                        response = table.query(**query_params)
-                        if 'LastEvaluatedKey' in response:
-                            query_params['ExclusiveStartKey'] = response['LastEvaluatedKey']
+            response = table.query(**query_params)
+            items = response.get('Items', [])
+            
+            if rating_filter == 'all':
+                # Split items into positive and negative
+                positive_items = [item for item in items if item['rating'] >= 4]
+                negative_items = [item for item in items if item['rating'] < 4]
                 
-                # Reset limit for actual query
-                query_params['Limit'] = items_per_bucket
-                response = table.query(**query_params)
-                all_items.extend(response.get('Items', []))
+                # Add items maintaining the desired ratio
+                if len(positive_items) > 0 and positive_target > 0:
+                    all_items.extend(random.sample(positive_items, min(len(positive_items), positive_target)))
+                    positive_target = max(0, positive_target - len(positive_items))
+                
+                if len(negative_items) > 0 and negative_target > 0:
+                    all_items.extend(random.sample(negative_items, min(len(negative_items), negative_target)))
+                    negative_target = max(0, negative_target - len(negative_items))
+            else:
+                all_items.extend(items)
 
         except Exception as e:
             print(f"Error querying bucket {bucket}: {str(e)}")
             continue
-
-    # If we have more items than needed, randomly sample from them
-    if len(all_items) > batch_size:
-        all_items = random.sample(all_items, batch_size)
-    else:
-        random.shuffle(all_items)
         
+        # If we have enough items, stop querying
+        if len(all_items) >= batch_size:
+            break
+
+    # Shuffle and limit to batch size
+    random.shuffle(all_items)
     return [clean_item(item) for item in all_items[:batch_size]]
 
 def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,7 +142,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         start_time = time.time()
         
-        # Get random reviews
+        # Get random reviews with balanced distribution
         items = get_random_reviews(batch_size, rating_filter, department_filter)
         
         # Calculate query time
