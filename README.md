@@ -142,7 +142,45 @@ pip install -r requirements.txt
 python load_reviews.py
 ```
 
-### 3. Run the Feedback Simulator
+### 3. Create ES Index with Mappings
+
+```bash
+curl -X PUT "es-endpoint:port/sentiment" \
+-H "Content-Type: application/json" \
+-d '{
+  "mappings": {
+    "properties": {
+      "reviewId": { "type": "keyword" },
+      "timestamp": { "type": "long" },
+      "reviewDateTime": { "type": "date" },
+      "review": { "type": "text" },
+      "title": { "type": "text" },
+      "rating": { "type": "integer" },
+      "recommended": { "type": "boolean" },
+      "age": { "type": "integer" },
+      "department": { "type": "keyword" },
+      "division": { "type": "keyword" },
+      "class": { "type": "keyword" },
+      "clothingId": { "type": "keyword" },
+      "randomBucket": { "type": "integer" },
+      "sentiment": { "type": "keyword" },
+      "sentimentScore": {
+        "properties": {
+          "Positive": { "type": "double" },
+          "Negative": { "type": "double" },
+          "Neutral": { "type": "double" },
+          "Mixed": { "type": "double" }
+        }
+      },
+      "keyPhrases": { "type": "keyword" },
+      "processingTimestamp": { "type": "date" },
+      "source": { "type": "keyword" }
+    }
+  }
+}'
+```
+
+### 4. Run the Feedback Simulator
 
 
 ```bash
@@ -168,7 +206,7 @@ Access the simulator at http://localhost:5173/
    - Use Kibana Dev Tools or curl to check the 'sentiment' index:
      ```bash
      # Replace with your Elasticsearch endpoint and index name
-     curl -X GET "https://your-elasticsearch-endpoint/sentiment/_count"
+     curl -X GET "https://es-endpoint/sentiment/_count"
      ```
    - Verify records are being indexed
 
@@ -194,6 +232,120 @@ https://www.kaggle.com/datasets/nicapotato/womens-ecommerce-clothing-reviews
 - Check AWS Console for service deployment status and CloudWatch logs
 - Ensure all environment variables are properly set in .env files
 - Confirm Elasticsearch endpoint is accessible from your VPC
+
+## Elasticsearch Commands Reference
+
+#### Get Document Count
+```http
+GET /sentiment/_count
+```
+
+#### Get Statistics
+```http
+GET /sentiment/_stats
+```
+
+#### Delete Index
+```http
+DELETE /sentiment
+```
+
+#### Create Index with Mappings
+```http
+PUT /sentiment
+{
+  "mappings": {
+    "properties": {
+      "reviewId": { "type": "keyword" },
+      "timestamp": { "type": "long" },
+      "reviewDateTime": { "type": "date" },
+      "review": { "type": "text" },
+      "title": { "type": "text" },
+      "rating": { "type": "integer" },
+      "recommended": { "type": "boolean" },
+      "age": { "type": "integer" },
+      "department": { "type": "keyword" },
+      "division": { "type": "keyword" },
+      "class": { "type": "keyword" },
+      "clothingId": { "type": "keyword" },
+      "randomBucket": { "type": "integer" },
+      "sentiment": { "type": "keyword" },
+      "sentimentScore": {
+        "properties": {
+          "Positive": { "type": "double" },
+          "Negative": { "type": "double" },
+          "Neutral": { "type": "double" },
+          "Mixed": { "type": "double" }
+        }
+      },
+      "keyPhrases": { "type": "keyword" },
+      "processingTimestamp": { "type": "date" },
+      "source": { "type": "keyword" }
+    }
+  }
+}
+```
+
+### Queries
+
+#### Delete Documents Matching a Query
+```http
+POST /sentiment/_delete_by_query
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+### Search by Specific Field
+```http
+GET /sentiment/_search
+{
+  "query": {
+    "term": {
+      "reviewId": "1234567-abcd-defgb-abcd-123456789"
+    }
+  }
+}
+```
+
+#### Match All Documents
+```http
+GET /sentiment/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+#### Search by Range
+```http
+GET /sentiment/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "range": {
+            "sentimentScore.Negative": {
+              "gt": 0.95
+            }
+          }
+        },
+        {
+          "range": {
+            "processingTimestamp": {
+              "gte": "now-1h/h"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Contributing
 
