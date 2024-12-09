@@ -347,10 +347,6 @@ GET /sentiment/_search
 }
 ```
 
-## Contributing
-
-Please read our contributing guidelines before submitting pull requests. Ensure all tests pass and code meets our style guidelines.
-
 ## License
 
 Licensed under the Apache License, Version 2.0 (the "License");

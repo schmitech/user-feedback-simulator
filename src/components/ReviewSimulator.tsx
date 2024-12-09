@@ -109,9 +109,7 @@ const ReviewSimulator: React.FC = () => {
           reviews: [{
             ...review,
             reviewDateTime: review.reviewDateTime,
-            // Convert timestamp to string since DynamoDB expects it
             timestamp: review.timestamp.toString(),
-            // Ensure these required fields are present
             reviewId: review.reviewId,
             clothingId: review.clothingId,
             department: review.department,
@@ -122,7 +120,6 @@ const ReviewSimulator: React.FC = () => {
             review: review.review,
             recommended: review.recommended,
             age: review.age,
-            // Add randomBucket if not present in the Review interface
             randomBucket: Math.floor(Math.random() * 10)
           }]
         })
@@ -168,7 +165,6 @@ const ReviewSimulator: React.FC = () => {
       });
     }
 
-    // Set new current review
     setCurrentReview(reviewWithTimestamp);
     
     // Update stats
